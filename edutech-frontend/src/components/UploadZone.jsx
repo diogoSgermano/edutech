@@ -1,103 +1,176 @@
-import React, { useState } from 'react';
-import { Upload, FileText, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { uploadPDF, generateAudio } from '../services/api';
+import React, { useState, useRef } from 'react';
+import { Upload, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function UploadZone({ onUploadSuccess }) {
-  const [isUploading, setIsUploading] = useState(false);
-  const [processingStage, setProcessingStage] = useState('idle'); // idle, uploading, summarizing, audio
-  const [progress, setProgress] = useState(0);
+export default function UploadZone({ onUpload, loading }) {
+  const [file, setFile] = useState(null);
+  const fileInputRef = useRef(null);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    console.log("Arquivo detectado:", file?.name);
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      toast.error('Por favor, selecione um arquivo PDF.');
-      return;
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files[0];
+    if (selectedFile && selectedFile.type === 'application/pdf') {
+      setFile(selectedFile);
+      onUpload(selectedFile);
+    } else {
+      alert('Apenas arquivos PDF são aceitos.');
+      setFile(null);
     }
+  };
 
-    const loadingToast = toast.loading('Processando PDF e gerando resumo...');
-    setIsUploading(true);
-    setProcessingStage('uploading');
-    setProgress(0);
+  const handleDragOver = (event) => {
+    event.preventDefault();
+  };
 
-    try {
-      console.log("Iniciando upload para o servidor...");
-      const data = await uploadPDF(file, (p) => {
-        setProgress(p);
-        if (p === 100) setProcessingStage('summarizing');
-      });
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const droppedFile = event.dataTransfer.files[0];
+    if (droppedFile && droppedFile.type === 'application/pdf') {
+      setFile(droppedFile);
+      onUpload(droppedFile);
+    } else {
+      alert('Apenas arquivos PDF são aceitos.');
+      setFile(null);
+    }
+  };
 
-      // Fase 2: Geração de Áudio
-      setProcessingStage('audio');
-      console.log("Gerando áudio do resumo...");
-      await generateAudio(data.file_id);
-
-      console.log("Upload concluído com sucesso:", data);
-      
-      toast.success('Resumo e áudio finalizados com êxito!', { 
-        id: loadingToast,
-        duration: 4000 
-      });
-
-      if (onUploadSuccess) onUploadSuccess(data);
-    } catch (error) {
-      console.error("Erro no upload:", error);
-      toast.error(`Erro: ${error.response?.data?.detail || 'Erro ao processar o documento'}`, { id: loadingToast });
-    } finally {
-      setIsUploading(false);
-      setProcessingStage('idle');
-      setProgress(0);
+  const handleClick = () => {
+    if (!loading) {
+      fileInputRef.current.click();
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full p-10 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer relative">
+    <div
+      style={{
+        border: `2px dashed ${loading ? 'var(--gray-200)' : 'var(--green-300)'}`,
+        borderRadius: 'var(--radius-xl)',
+        padding: '40px 24px',
+        textAlign: 'center',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        background: loading ? 'var(--gray-50)' : 'var(--white)',
+        transition: 'all var(--t-normal)',
+        userSelect: 'none',
+      }}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onClick={handleClick}
+    >
       <input
         type="file"
-        className={`absolute inset-0 w-full h-full opacity-0 z-10 ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".pdf"
-        disabled={isUploading}
+        accept="application/pdf"
+        style={{ display: 'none' }}
+        disabled={loading}
       />
 
-      {isUploading ? (
-        <div className="flex flex-col items-center gap-4 text-blue-600">
-          <Loader2 className="w-12 h-12 animate-spin" />
-          <div className="text-center">
-            <p className="text-lg font-semibold">
-              {processingStage === 'uploading' && 'Enviando PDF...'}
-              {processingStage === 'summarizing' && 'A IA está lendo e resumindo...'}
-              {processingStage === 'audio' && 'Transformando resumo em áudio...'}
-            </p>
-            <p className="text-sm text-blue-400">
-              {processingStage === 'uploading' ? `Progresso: ${progress}%` : 'Quase pronto...'}
-            </p>
-            <div className="w-48 h-2 bg-blue-200 rounded-full mt-3 overflow-hidden">
-              <div 
-                className="h-full bg-blue-600 transition-all duration-300" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-4 pointer-events-none">
-        <div className="p-4 bg-white rounded-full shadow-sm">
-          <Upload className="w-8 h-8 text-blue-600" />
-        </div>
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-700">
-            Clique ou arraste seu PDF aqui
-          </p>
-          <p className="text-sm text-gray-500">
-            Apenas arquivos PDF são aceitos para resumo inteligente
-          </p>
-        </div>
+      <div
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: '50%',
+          background: 'var(--green-100)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 16px',
+          transition: 'background var(--t-normal)',
+        }}
+      >
+        {loading ? (
+          <Spinner />
+        ) : (
+          <Upload size={28} color="var(--green-600)" />
+        )}
       </div>
+
+      {loading ? (
+        <>
+          <p style={{ fontWeight: 700, fontSize: 'var(--fs-lg)', color: 'var(--green-700)', margin: 0 }}>
+            Processando com IA…
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-sm)', marginTop: 6 }}>
+            Extraindo texto e gerando resumo via RAG. Isso pode levar alguns instantes.
+          </p>
+        </>
+      ) : (
+        <>
+          <p style={{ fontWeight: 700, fontSize: 'var(--fs-lg)', color: 'var(--text-primary)', margin: 0 }}>
+            Arraste seu PDF aqui
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-sm)', marginTop: 6, marginBottom: 16 }}>
+            ou clique para selecionar um arquivo do seu computador
+          </p>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'var(--green-600)',
+              color: '#fff',
+              padding: '9px 22px',
+              borderRadius: 'var(--radius-md)',
+              fontWeight: 600,
+              fontSize: 'var(--fs-sm)',
+              boxShadow: 'var(--shadow-green)',
+              transition: 'background var(--t-fast)',
+            }}
+          >
+            <Upload size={15} />
+            Selecionar PDF
+          </div>
+
+          <p
+            style={{
+              marginTop: 14,
+              fontSize: 'var(--fs-xs)',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              justifyContent: 'center',
+            }}
+          >
+            <AlertCircle size={11} />
+            Apenas arquivos .pdf — tamanho máximo recomendado: 50 MB
+          </p>
+        </>
+      )}
+
+      {file && !loading && (
+        <div
+          style={{
+            marginTop: 14,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 'var(--fs-xs)',
+            color: 'var(--green-700)',
+            background: 'var(--green-100)',
+            padding: '4px 10px',
+            borderRadius: 99,
+          }}
+        >
+          <CheckCircle2 size={12} />
+          {file.name}
+        </div>
       )}
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      style={{
+        width: 28,
+        height: 28,
+        border: '3px solid var(--green-300)',
+        borderTopColor: 'var(--green-600)',
+        borderRadius: '50%',
+        display: 'inline-block',
+        animation: 'spin .8s linear infinite',
+      }}
+    />
   );
 }
