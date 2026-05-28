@@ -8,9 +8,33 @@ O **EduTech Pro** é uma plataforma que utiliza Inteligência Artificial para fa
 - **Backend:** FastAPI, LangChain, Groq (LLaMA 3), HuggingFace (Embeddings), gTTS.
 - **Banco de Dados:** MySQL.
 
+## Como funciona
+
+- O usuário faz upload de um PDF pelo frontend.
+- O backend extrai o texto do PDF com `PyPDF2`.
+- O texto é dividido em blocos e transformado em embeddings com HuggingFace.
+- O vector store FAISS guarda esses embeddings e serve como memória do documento.
+- O `ChatGroq` usa o modelo `llama-3.1-8b-instant` para ler o contexto mais relevante e gerar um resumo estruturado.
+- O resumo é salvo no banco e o backend também gera um arquivo de áudio com `gTTS`.
+- O frontend exibe o resumo, permite ouvir o áudio e listar o histórico de documentos.
+
+## O que cada parte faz
+
+- `edutech-backend/main.py`: recebe upload, extrai texto, gera embeddings, consulta a IA Groq, cria resumo e áudio, e expõe a API.
+- `edutech-backend/api.js`: configura o servidor FastAPI, CORS, diretórios de upload e áudio, e define as rotas.
+- `edutech-frontend/src/services/api.js`: faz chamadas para o backend para enviar PDF, buscar documentos, carregar resumo e tocar áudio.
+- `edutech-frontend/src/App.js`: coordena upload, status, histórico e reprodução de áudio no navegador.
+- `edutech-backend/schema.sql`: define a tabela de documentos no MySQL.
+
+## O que a IA Groq faz
+
+- A IA recebe texto já processado e relevante do PDF.
+- Ela usa o modelo LLaMA 3 para gerar um resumo educacional, com introdução, pontos-chave e conclusão.
+- O backend não envia o PDF inteiro; ele envia apenas os trechos mais relevantes do documento via RAG.
+
 ## Pré-requisitos
 
-- Python 3.10 ou superior
+- ### Python 3.11 até 3.12 
 - Node.js & npm
 - MySQL Server
 - Chave de API do [Groq] (https://console.groq.com/)
@@ -114,16 +138,16 @@ cd edutech-backend
 
 Crie um ambiente virtual e instale as dependências:
 ```bash
-python -m venv venv
+python -3.11 -m venv venv311
 ```
 Depois digite:
 ***No Windows:***
 ``` bash
-venv\Scripts\activate
+venv311\Scripts\activate
 ```
 ___No Linux/macOS:___
 ```bash
-source venv/bin/activate
+source venv311/bin/activate
 ```
 Após isso, instale:
 ```bash
